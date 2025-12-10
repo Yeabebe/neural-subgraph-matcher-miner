@@ -3,8 +3,8 @@ import os
 from collections import defaultdict
 
 # Configuration
-EDGE_FILE = "ciscoDataset\edges_1days_tillFeb9_partial_sensors.csv.txt"   
-OUTPUT_PKL = "ciscoDataset\spminer_input.pkl"                             
+EDGE_FILE = "ciscoDatasets\edges_1days_tillFeb9_partial_sensors.csv.txt"   
+OUTPUT_PKL = "ciscoDatasets\spminer_input.pkl"                             
 
 # Parse a single attribute string into python dictionary features
 def parse_edge_attributes(attr_string):
