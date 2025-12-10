@@ -52,26 +52,27 @@ def vec_hash(v):
     if cached_masks is None:
         random.seed(2019)
         cached_masks = [random.getrandbits(32) for i in range(len(v))]
-    #v = [hash(tuple(v)) ^ mask for mask in cached_masks]
-    v = [hash(v[i]) ^ mask for i, mask in enumerate(cached_masks)]
-    #v = [np.sum(v) for mask in cached_masks]
-    return v
+    # Compute hashed values then return as numpy int64 array to avoid Python->C long conversion overflow
+    hashed = [(hash(int(v[i])) ^ cached_masks[i]) & 0x7fffffffffffffff for i in range(len(v))]
+    return np.array(hashed, dtype=np.int64)
 
 def wl_hash(g, dim=64, node_anchored=False):
     g = nx.convert_node_labels_to_integers(g)
-    vecs = np.zeros((len(g), dim), dtype=int)
+    vecs = np.zeros((len(g), dim), dtype=np.int64)
     if node_anchored:
         for v in g.nodes:
             if g.nodes[v]["anchor"] == 1:
                 vecs[v] = 1
                 break
     for i in range(len(g)):
-        newvecs = np.zeros((len(g), dim), dtype=int)
+        newvecs = np.zeros((len(g), dim), dtype=np.int64)
         for n in g.nodes:
-            newvecs[n] = vec_hash(np.sum(vecs[list(g.neighbors(n)) + [n]],
-                axis=0))
+            summed = np.sum(vecs[list(g.neighbors(n)) + [n]], axis=0)
+            newvecs[n] = vec_hash(summed)
         vecs = newvecs
-    return tuple(np.sum(vecs, axis=0))
+    # Return a tuple of Python ints for stability
+    summed = np.sum(vecs, axis=0)
+    return tuple(int(x) for x in summed)
 
 def gen_baseline_queries_rand_esu(queries, targets, node_anchored=False):
     sizes = Counter([len(g) for g in queries])
