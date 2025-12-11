@@ -127,7 +127,7 @@ Potential Improvements
 - Use clustering to group similar motif structures
 - Improve visualization with meaningful labels
 
-Repository Structure
+## Repository Structure
 ```
 neural-subgraph-matcher-miner/
 │
@@ -150,7 +150,7 @@ neural-subgraph-matcher-miner/
     └── cluster/
         └── interactive motif visualizations
 ```
-How to Reproduce the Results
+## How to Reproduce the Results
 1. Clone the repository
 2. Install dependencies (requirements.txt)
 3. Convert the Cisco dataset:
