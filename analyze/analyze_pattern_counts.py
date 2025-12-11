@@ -39,7 +39,38 @@ if __name__ == "__main__":
             continue
 
         with open(os.path.join(args.counts_path, fn), "r") as f:
-            graphlet_lens, n_matches, n_matches_bl = json.load(f)
+            data = json.load(f)
+
+            # Skip files that contain pattern representative lists (out-patterns.json)
+            if isinstance(data, list) and len(data) > 0 and isinstance(data[0], dict) and ('nodes' in data[0] or 'edges' in data[0]):
+                print(f"Skipping pattern file: {fn}")
+                continue
+            # Support multiple possible formats:
+            # - [graphlet_lens, n_matches, n_matches_bl]
+            # - [graphlet_lens, n_matches]
+            # - {"graphlet_lens": ..., "n_matches": ...}
+            if isinstance(data, list):
+                if len(data) == 3:
+                    graphlet_lens, n_matches, n_matches_bl = data
+                elif len(data) == 2:
+                    graphlet_lens, n_matches = data
+                    n_matches_bl = []
+                else:
+                    raise ValueError(f"Unexpected list format in {fn}: length {len(data)}")
+            elif isinstance(data, dict):
+                graphlet_lens = data.get('graphlet_lens') or data.get('sizes') or data.get('sizes_list')
+                n_matches = data.get('n_matches') or data.get('counts')
+                n_matches_bl = data.get('n_matches_bl') or data.get('counts_bl') or []
+                if graphlet_lens is None or n_matches is None:
+                    # Fallback: try positional keys
+                    items = list(data.values())
+                    if len(items) >= 2:
+                        graphlet_lens, n_matches = items[0], items[1]
+                        n_matches_bl = items[2] if len(items) > 2 else []
+                    else:
+                        raise ValueError(f"Unexpected dict format in {fn}: keys {list(data.keys())}")
+            else:
+                raise ValueError(f"Unsupported JSON format in {fn}: {type(data)}")
             name = fn[:-5]
             all_counts[name] = graphlet_lens, n_matches
 
