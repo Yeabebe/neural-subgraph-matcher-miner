@@ -3,6 +3,9 @@
 This repository contains my work on preparing, processing, and mining motifs from a Cisco network communication dataset using SPMiner, a neural subgraph pattern mining framework.
 The goal of this project is to automatically discover communication patterns (motifs) from real network traffic and interpret their meaning in a social/organizational context.
 
+<img width="819" height="642" alt="output" src="https://github.com/user-attachments/assets/283f2aef-ff6f-430e-9f94-eaaad7d23b6f" />
+
+
 ## Project Overview
 
 Traditional networks are large and complex, making manual inspection of patterns impossible.
