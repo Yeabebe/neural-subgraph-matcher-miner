@@ -117,6 +117,8 @@ def arg_parse():
     parser.add_argument('--use_sampling', action="store_true", help='Use node sampling for very large graphs')
     parser.add_argument('--graph_type', type=str, default='auto', choices=['directed', 'undirected', 'auto'],
                        help='Graph type: directed, undirected, or auto-detect')
+    parser.add_argument('--graph_pkl_path', type=str, default=None,
+                       help='Path to a .pkl file containing the graph to analyze (used with --dataset=custom)')
     parser.set_defaults(dataset="enzymes",
                        queries_path="results/out-patterns.p",
                        out_path="results/counts.json",
@@ -134,30 +136,56 @@ def load_networkx_graph(filepath, directed=None):
     """
     with open(filepath, 'rb') as f:
         data = pickle.load(f)
-        
-        if isinstance(data, (nx.Graph, nx.DiGraph)):
-            if directed is None:
-                return data
-            elif directed and not data.is_directed():
-                return data.to_directed()
-            elif not directed and data.is_directed():
-                return data.to_undirected()
-            else:
-                return data
-        
+
+    # If it's already a NetworkX graph, normalize directedness and return
+    if isinstance(data, (nx.Graph, nx.DiGraph)):
         if directed is None:
-            if isinstance(data, dict):
-                directed = data.get('directed', False)
-        
+            return data
+        elif directed and not data.is_directed():
+            return data.to_directed()
+        elif not directed and data.is_directed():
+            return data.to_undirected()
+        else:
+            return data
+
+    # If the pickle is a list, try to interpret common list formats
+    if isinstance(data, list):
+        # List of NetworkX graphs -> return first graph (count_patterns expects single graph)
+        if len(data) > 0 and all(isinstance(d, (nx.Graph, nx.DiGraph)) for d in data):
+            g = data[0]
+            if directed is None:
+                return g
+            elif directed and not g.is_directed():
+                return g.to_directed()
+            elif not directed and g.is_directed():
+                return g.to_undirected()
+            else:
+                return g
+
+        # List of edge tuples/lists -> build a graph from edges
+        if len(data) > 0 and all(isinstance(e, (list, tuple)) and len(e) >= 2 for e in data):
+            graph = nx.DiGraph() if directed else nx.Graph()
+            graph.add_edges_from([(e[0], e[1]) for e in data])
+            return graph
+
+        # List of dicts with nodes/edges -> take first and build
+        if len(data) > 0 and isinstance(data[0], dict) and 'nodes' in data[0] and 'edges' in data[0]:
+            data = data[0]
+
+    # If it's a dict with 'nodes' and 'edges'
+    if isinstance(data, dict) and 'nodes' in data and 'edges' in data:
+        if directed is None:
+            directed = data.get('directed', False)
+
         graph = nx.DiGraph() if directed else nx.Graph()
-        
+
         for node in data['nodes']:
             if isinstance(node, tuple):
                 node_id, attrs = node
                 graph.add_node(node_id, **attrs)
             else:
                 graph.add_node(node)
-        
+
         for edge in data['edges']:
             if len(edge) == 3:
                 src, dst, attrs = edge
@@ -165,8 +193,10 @@ def load_networkx_graph(filepath, directed=None):
             else:
                 src, dst = edge[:2]
                 graph.add_edge(src, dst)
-                
+
         return graph
+
+    raise ValueError(f"Unsupported pickle format in {filepath}: {type(data)}")
 
 def count_graphlets_helper(inp):
     i, query, target, method, node_anchored, anchor_or_none, timeout = inp
@@ -558,6 +588,15 @@ def main():
     elif args.dataset.startswith('plant-'):
         size = int(args.dataset.split("-")[-1])
         dataset = decoder.make_plant_dataset(size)
+    elif args.dataset == 'custom':
+        if not args.graph_pkl_path:
+            raise ValueError("For dataset 'custom' please provide --graph_pkl_path pointing to a .pkl file")
+        print(f"Loading custom graph from {args.graph_pkl_path}")
+        if args.graph_type == 'auto':
+            graph = load_networkx_graph(args.graph_pkl_path, directed=None)
+        else:
+            graph = load_networkx_graph(args.graph_pkl_path, directed=use_directed)
+        dataset = [graph]
     elif args.dataset == "analyze":
         with open("results/analyze.p", "rb") as f:
             cand_patterns, _ = pickle.load(f)
